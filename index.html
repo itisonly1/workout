@@ -47,7 +47,7 @@ footer{color:var(--muted);font-size:11px;text-align:center;padding:20px}
 </style>
 </head>
 <body>
-<header><h1>Workout Log</h1><div class="sub">筋トレ記録・オフライン対応</div></header>
+<header><h1>Workout Log</h1></header>
 <main>
 <section id="page-calendar">
  <div class="calendar-head"><button class="secondary" id="prevMonth">‹</button><h2 id="monthLabel"></h2><button class="secondary" id="nextMonth">›</button></div>
@@ -62,10 +62,8 @@ footer{color:var(--muted);font-size:11px;text-align:center;padding:20px}
  <div class="row between"><h2>トレーニング記録</h2><span class="pill" id="entryDateLabel"></span></div>
  <label for="entryDate">記録日</label><input type="date" id="entryDate">
  <div class="row" style="margin-top:12px"><select id="exerciseSelect" class="grow"><option value="">種目を選択</option></select><button id="addExercise">種目を追加</button></div>
- <p class="tiny">種目を選択すると、セット・重量・回数の入力欄が自動で追加されます。</p>
  <div id="entryList"></div>
  <div class="actions" style="margin-top:14px"><button id="saveDay" class="grow">記録を保存</button><button id="backCal" class="secondary">カレンダーへ</button></div>
- <p class="tiny">各セットの重量・回数を個別に入力できます。重量は種目ごとに設定した候補から選択します。</p>
 </section>
 <section id="page-history" class="hidden">
  <h2>種目別履歴</h2>
@@ -134,7 +132,7 @@ function renderDraft(){
  ${r.sets.map((s,si)=>`<div class="set-row"><span class="num">${si+1}セット</span><select data-w="${idx},${si}">${e.weights.map(w=>`<option value="${w}" ${Number(s.weight)===Number(w)?'selected':''}>${w} kg</option>`).join('')}</select><div class="rep-wrap"><input type="number" min="0" step="1" inputmode="numeric" placeholder="回数" value="${s.reps}" data-r="${idx},${si}"><div class="rep-control">${[[10,'+10'],[1,'+1'],[-1,'-1'],[-10,'-10']].map(([v,t])=>`<button type="button" class="secondary" data-adjust="${idx},${si},${v}">${t}</button>`).join('')}</div></div><button class="secondary" data-delset="${idx},${si}" style="padding:7px">×</button></div>`).join('')}
  <button class="secondary" data-addset="${idx}" style="width:100%;margin-top:6px">＋ セット追加</button></div>`}).join('');
  root.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{draft.splice(+b.dataset.remove,1);renderDraft()});
- root.querySelectorAll('[data-addset]').forEach(b=>b.onclick=()=>{const r=draft[+b.dataset.addset];r.sets.push({weight:exById(r.exerciseId).weights[0]??0,reps:0});renderDraft()});
+ root.querySelectorAll('[data-addset]').forEach(b=>b.onclick=()=>{const r=draft[+b.dataset.addset],last=r.sets[r.sets.length-1];r.sets.push({weight:Number(last?.weight??(exById(r.exerciseId).weights[0]??0)),reps:Number(last?.reps??0)});renderDraft()});
  root.querySelectorAll('[data-delset]').forEach(b=>b.onclick=()=>{const [i,j]=b.dataset.delset.split(',').map(Number);draft[i].sets.splice(j,1);renderDraft()});
  root.querySelectorAll('[data-w]').forEach(el=>el.onchange=()=>{const [i,j]=el.dataset.w.split(',').map(Number);draft[i].sets[j].weight=Number(el.value)});
  root.querySelectorAll('[data-r]').forEach(el=>el.onchange=()=>{const [i,j]=el.dataset.r.split(',').map(Number);draft[i].sets[j].reps=Math.max(0,Math.floor(Number(el.value)||0))});
@@ -165,11 +163,15 @@ function renderHistory(){
 }
 document.getElementById('historyExercise').onchange=renderHistory;document.getElementById('historyPeriod').onchange=renderHistory;window.addEventListener('resize',()=>{if(!document.getElementById('page-history').classList.contains('hidden'))renderHistory()});
 function renderSettings(){
- const root=document.getElementById('exerciseSettings');root.innerHTML=data.exercises.map(e=>`<div class="card"><div class="row between"><h3>${esc(e.name)}</h3><button class="danger" data-exdel="${e.id}" style="padding:7px 10px">削除</button></div>
+ const root=document.getElementById('exerciseSettings');root.innerHTML=data.exercises.map((e,i)=>`<div class="card"><div class="row between"><h3>${esc(e.name)}</h3><div class="row"><button class="secondary" data-exup="${e.id}" style="padding:7px 10px" ${i===0?'disabled':''} aria-label="上へ">↑</button><button class="secondary" data-exdown="${e.id}" style="padding:7px 10px" ${i===data.exercises.length-1?'disabled':''} aria-label="下へ">↓</button><button class="danger" data-exdel="${e.id}" style="padding:7px 10px">削除</button></div></div>
  <label>種目名</label><input data-name="${e.id}" value="${esc(e.name)}">
  <label>重量候補（kg・カンマ区切り）</label><input data-weights="${e.id}" value="${e.weights.join(', ')}">
  <button data-saveex="${e.id}" style="margin-top:9px;width:100%">設定を保存</button></div>`).join('');
- root.querySelectorAll('[data-saveex]').forEach(b=>b.onclick=()=>{const e=exById(b.dataset.saveex);const name=root.querySelector(`[data-name="${e.id}"]`).value.trim();const weights=root.querySelector(`[data-weights="${e.id}"]`).value.split(',').map(x=>Number(x.trim())).filter(x=>Number.isFinite(x)&&x>=0);if(!name||!weights.length){alert('種目名と重量候補を正しく入力してください');return}e.name=name;e.weights=[...new Set(weights)].sort((a,b)=>a-b);persist();renderSettings();alert('設定を保存しました')});
+ const applySettingsInputs=()=>{const updates=[];for(const e of data.exercises){const name=root.querySelector(`[data-name="${e.id}"]`).value.trim();const raw=root.querySelector(`[data-weights="${e.id}"]`).value;const weights=raw.split(',').map(x=>Number(x.trim())).filter(x=>Number.isFinite(x)&&x>=0);if(!name||!weights.length){alert('種目名と重量候補を正しく入力してください');return false}updates.push({e,name,weights:[...new Set(weights)].sort((a,b)=>a-b)})}updates.forEach(x=>{x.e.name=x.name;x.e.weights=x.weights});return true};
+ root.querySelectorAll('[data-saveex]').forEach(b=>b.onclick=()=>{if(!applySettingsInputs())return;persist();renderSettings();alert('設定を保存しました')});
+ const moveExercise=(id,delta)=>{if(!applySettingsInputs())return;const i=data.exercises.findIndex(e=>e.id===id),j=i+delta;if(j<0||j>=data.exercises.length)return;[data.exercises[i],data.exercises[j]]=[data.exercises[j],data.exercises[i]];persist();renderSettings()};
+ root.querySelectorAll('[data-exup]').forEach(b=>b.onclick=()=>moveExercise(b.dataset.exup,-1));
+ root.querySelectorAll('[data-exdown]').forEach(b=>b.onclick=()=>moveExercise(b.dataset.exdown,1));
  root.querySelectorAll('[data-exdel]').forEach(b=>b.onclick=()=>{if(!confirm('種目を削除しますか？過去の記録も閲覧対象から外れます。'))return;data.exercises=data.exercises.filter(e=>e.id!==b.dataset.exdel);persist();renderSettings()});
 }
 document.getElementById('createExercise').onclick=()=>{const input=document.getElementById('newExerciseName'),name=input.value.trim();if(!name)return;if(data.exercises.some(e=>e.name===name)){alert('同じ名前の種目があります');return}data.exercises.push({id:'ex_'+Date.now(),name,weights:[20,30,40,50,60,70,80,90,100]});persist();input.value='';renderSettings()};
