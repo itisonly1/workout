@@ -98,6 +98,15 @@ function loadData(){try{const x=JSON.parse(localStorage.getItem(KEY));if(x&&Arra
 function persist(){localStorage.setItem(KEY,JSON.stringify(data))}
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const exById=id=>data.exercises.find(e=>e.id===id);
+function weightLabel(w){const s=String(w).trim();return /^(?:\\d+(?:\\.\\d*)?|\\.\\d+)$/.test(s)?s+' kg':s}
+function parseWeightCandidates(raw){
+ const values=raw.split(',').map(x=>x.trim()).filter(x=>x!=='').map(x=>{
+  const n=Number(x);return Number.isFinite(n)?(n>=0?n:null):x;
+ }).filter(x=>x!==null);
+ const unique=[];const seen=new Set();
+ for(const v of values){const k=typeof v==='number'?'n:'+v:'s:'+v;if(!seen.has(k)){seen.add(k);unique.push(v)}}
+ return unique.sort((a,b)=>typeof a==='number'&&typeof b==='number'?a-b:typeof a==='number'?-1:typeof b==='number'?1:String(a).localeCompare(String(b),'ja'));
+}
 function showPage(p){document.querySelectorAll('main>section').forEach(s=>s.classList.add('hidden'));document.getElementById('page-'+p).classList.remove('hidden');document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===p));if(p==='history')renderHistory();if(p==='settings')renderSettings();if(p==='entry')renderEntry()}
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>showPage(b.dataset.page));
 function renderCalendar(){
@@ -112,7 +121,7 @@ function renderCalendar(){
 function renderDaySummary(){
  document.getElementById('selectedDateLabel').textContent=selectedDate.replaceAll('-','/');const rec=data.records[selectedDate]||[];
  document.getElementById('dayCount').textContent=rec.length+'種目';
- document.getElementById('daySummary').innerHTML=rec.length?rec.map(r=>{const e=exById(r.exerciseId);return `<div style="padding:7px 0;border-bottom:1px solid var(--line)"><b>${esc(e?.name||'削除済み種目')}</b><div class="muted">${r.sets.map((s,i)=>`${i+1}: ${s.weight}kg × ${s.reps}回`).join('　 /　 ')}</div></div>`}).join(''):'この日の記録はありません。';
+ document.getElementById('daySummary').innerHTML=rec.length?rec.map(r=>{const e=exById(r.exerciseId);return `<div style="padding:7px 0;border-bottom:1px solid var(--line)"><b>${esc(e?.name||'削除済み種目')}</b><div class="muted">${r.sets.map((s,i)=>`${i+1}: ${esc(weightLabel(s.weight))} × ${s.reps}回`).join('　 /　 ')}</div></div>`}).join(''):'この日の記録はありません。';
 }
 document.getElementById('prevMonth').onclick=()=>{viewDate.setMonth(viewDate.getMonth()-1);renderCalendar()};
 document.getElementById('nextMonth').onclick=()=>{viewDate.setMonth(viewDate.getMonth()+1);renderCalendar()};
@@ -129,7 +138,7 @@ function renderEntry(){
 function renderDraft(){
  const root=document.getElementById('entryList');
  root.innerHTML=draft.map((r,idx)=>{const e=exById(r.exerciseId);if(!e)return '';return `<div class="card exercise-block"><div class="row between"><h3>${esc(e.name)}</h3><button class="danger" data-remove="${idx}" style="padding:7px 10px">種目を外す</button></div>
- ${r.sets.map((s,si)=>`<div class="set-row"><span class="num">${si+1}セット</span><select data-w="${idx},${si}">${e.weights.map(w=>`<option value="${w}" ${Number(s.weight)===Number(w)?'selected':''}>${w} kg</option>`).join('')}</select><div class="rep-wrap"><input type="number" min="0" step="1" inputmode="numeric" placeholder="回数" value="${s.reps}" data-r="${idx},${si}"><div class="rep-control">${[[10,'+10'],[1,'+1'],[-1,'-1'],[-10,'-10']].map(([v,t])=>`<button type="button" class="secondary" data-adjust="${idx},${si},${v}">${t}</button>`).join('')}</div></div><button class="secondary" data-delset="${idx},${si}" style="padding:7px">×</button></div>`).join('')}
+ ${r.sets.map((s,si)=>`<div class="set-row"><span class="num">${si+1}セット</span><select data-w="${idx},${si}">${e.weights.map(w=>`<option value="${esc(String(w))}" ${String(s.weight)===String(w)?'selected':''}>${esc(weightLabel(w))}</option>`).join('')}</select><div class="rep-wrap"><input type="number" min="0" step="1" inputmode="numeric" placeholder="回数" value="${s.reps}" data-r="${idx},${si}"><div class="rep-control">${[[10,'+10'],[1,'+1'],[-1,'-1'],[-10,'-10']].map(([v,t])=>`<button type="button" class="secondary" data-adjust="${idx},${si},${v}">${t}</button>`).join('')}</div></div><button class="secondary" data-delset="${idx},${si}" style="padding:7px">×</button></div>`).join('')}
  <button class="secondary" data-addset="${idx}" style="width:100%;margin-top:6px">＋ セット追加</button></div>`}).join('');
  root.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{draft.splice(+b.dataset.remove,1);renderDraft()});
  root.querySelectorAll('[data-addset]').forEach(b=>b.onclick=()=>{const r=draft[+b.dataset.addset],last=r.sets[r.sets.length-1];r.sets.push({weight:Number(last?.weight??(exById(r.exerciseId).weights[0]??0)),reps:Number(last?.reps??0)});renderDraft()});
@@ -157,9 +166,9 @@ function renderHistory(){
  const sel=document.getElementById('historyExercise');const old=sel.value;sel.innerHTML=data.exercises.map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('');if(data.exercises.some(e=>e.id===old))sel.value=old;
  const id=sel.value,period=document.getElementById('historyPeriod').value;const cutoff=new Date();cutoff.setMonth(cutoff.getMonth()-Number(period));
  const rows=[];Object.entries(data.records).sort((a,b)=>b[0].localeCompare(a[0])).forEach(([date,rs])=>{if(period!=='all'&&new Date(date+'T23:59:59')<cutoff)return;const r=rs.find(x=>x.exerciseId===id);if(r)rows.push({date,sets:r.sets})});
- const total=rows.reduce((n,r)=>n+r.sets.reduce((a,s)=>a+s.weight*s.reps,0),0),points=rows.map(r=>({date:r.date,max:Math.max(...r.sets.map(s=>Number(s.weight)||0))})).sort((a,b)=>a.date.localeCompare(b.date));
+ const total=rows.reduce((n,r)=>n+r.sets.reduce((a,s)=>a+(Number.isFinite(Number(s.weight))?Number(s.weight)*s.reps:0),0),0),points=rows.map(r=>({date:r.date,max:Math.max(0,...r.sets.map(s=>Number(s.weight)).filter(Number.isFinite))})).sort((a,b)=>a.date.localeCompare(b.date));
  document.getElementById('historySummary').innerHTML=`<b>${esc(exById(id)?.name||'種目')}</b><div class="muted" style="margin-top:6px">記録日数：${rows.length}日　／　総ボリューム：${Math.round(total).toLocaleString()} kg　／　最高重量：${points.length?Math.max(...points.map(p=>p.max))+' kg':'—'}</div>`;
- drawMaxChart(points);document.getElementById('historyList').innerHTML=rows.length?rows.map(r=>`<div class="history-item"><b>${r.date.replaceAll('-','/')}</b><div>${r.sets.map((s,i)=>`${i+1}セット　${s.weight}kg × ${s.reps}回`).join('<br>')}</div></div>`).join(''):'<div class="empty">該当期間の記録はありません。</div>';
+ drawMaxChart(points);document.getElementById('historyList').innerHTML=rows.length?rows.map(r=>`<div class="history-item"><b>${r.date.replaceAll('-','/')}</b><div>${r.sets.map((s,i)=>`${i+1}セット　${esc(weightLabel(s.weight))} × ${s.reps}回`).join('<br>')}</div></div>`).join(''):'<div class="empty">該当期間の記録はありません。</div>';
 }
 document.getElementById('historyExercise').onchange=renderHistory;document.getElementById('historyPeriod').onchange=renderHistory;window.addEventListener('resize',()=>{if(!document.getElementById('page-history').classList.contains('hidden'))renderHistory()});
 function renderSettings(){
@@ -167,7 +176,7 @@ function renderSettings(){
  <label>種目名</label><input data-name="${e.id}" value="${esc(e.name)}">
  <label>重量候補（kg・カンマ区切り）</label><input data-weights="${e.id}" value="${e.weights.join(', ')}">
  <button data-saveex="${e.id}" style="margin-top:9px;width:100%">設定を保存</button></div>`).join('');
- const applySettingsInputs=()=>{const updates=[];for(const e of data.exercises){const name=root.querySelector(`[data-name="${e.id}"]`).value.trim();const raw=root.querySelector(`[data-weights="${e.id}"]`).value;const weights=raw.split(',').map(x=>Number(x.trim())).filter(x=>Number.isFinite(x)&&x>=0);if(!name||!weights.length){alert('種目名と重量候補を正しく入力してください');return false}updates.push({e,name,weights:[...new Set(weights)].sort((a,b)=>a-b)})}updates.forEach(x=>{x.e.name=x.name;x.e.weights=x.weights});return true};
+ const applySettingsInputs=()=>{const updates=[];for(const e of data.exercises){const name=root.querySelector(`[data-name="${e.id}"]`).value.trim();const raw=root.querySelector(`[data-weights="${e.id}"]`).value;const weights=parseWeightCandidates(raw);if(!name||!weights.length){alert('種目名と重量候補を正しく入力してください');return false}updates.push({e,name,weights})}updates.forEach(x=>{x.e.name=x.name;x.e.weights=x.weights});return true};
  root.querySelectorAll('[data-saveex]').forEach(b=>b.onclick=()=>{if(!applySettingsInputs())return;persist();renderSettings();alert('設定を保存しました')});
  const moveExercise=(id,delta)=>{if(!applySettingsInputs())return;const i=data.exercises.findIndex(e=>e.id===id),j=i+delta;if(j<0||j>=data.exercises.length)return;[data.exercises[i],data.exercises[j]]=[data.exercises[j],data.exercises[i]];persist();renderSettings()};
  root.querySelectorAll('[data-exup]').forEach(b=>b.onclick=()=>moveExercise(b.dataset.exup,-1));
