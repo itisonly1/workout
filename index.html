@@ -121,9 +121,9 @@ function renderCalendar(){
  renderDaySummary();
 }
 function renderDaySummary(){
- document.getElementById('selectedDateLabel').textContent=selectedDate.replaceAll('-','/');const rec=data.records[selectedDate]||[];
+ document.getElementById('selectedDateLabel').textContent=selectedDate.replaceAll('-','/');const rec=(data.records[selectedDate]||[]).filter(r=>exById(r.exerciseId));
  document.getElementById('dayCount').textContent=rec.length+'種目';
- document.getElementById('daySummary').innerHTML=rec.length?rec.map(r=>{const e=exById(r.exerciseId);return `<div style="padding:7px 0;border-bottom:1px solid var(--line)"><b>${esc(e?.name||'削除済み種目')}</b><div class="muted">${r.sets.map((s,i)=>`${i+1}: ${esc(weightLabel(s.weight))} × ${s.reps}回`).join('　 /　 ')}</div></div>`}).join(''):'この日の記録はありません。';
+ document.getElementById('daySummary').innerHTML=rec.length?rec.map(r=>{const e=exById(r.exerciseId);return `<div style="padding:7px 0;border-bottom:1px solid var(--line)"><b>${esc(e?.name||'削除済み種目')}</b><div class="muted">${r.sets.map(s=>`${esc(weightLabel(s.weight))}×${s.reps}回`).join('　 /　 ')}</div></div>`}).join(''):'この日の記録はありません。';
 }
 document.getElementById('prevMonth').onclick=()=>{viewDate.setMonth(viewDate.getMonth()-1);renderCalendar()};
 document.getElementById('nextMonth').onclick=()=>{viewDate.setMonth(viewDate.getMonth()+1);renderCalendar()};
@@ -164,7 +164,7 @@ function drawMaxChart(points){
  const canvas=document.getElementById('maxChart'),empty=document.getElementById('chartEmpty'),ctx=canvas.getContext('2d');
  const dpr=window.devicePixelRatio||1,w=Math.max(280,canvas.clientWidth),h=210;canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
  if(!points.length){canvas.classList.add('hidden');empty.classList.remove('hidden');return}canvas.classList.remove('hidden');empty.classList.add('hidden');
- const pad={l:42,r:12,t:14,b:34},pw=w-pad.l-pad.r,ph=h-pad.t-pad.b,vals=points.map(p=>p.value),step=mode==='weight'?5:Math.max(1,Math.ceil((Math.max(...vals)-Math.min(...vals))/5)),lo=Math.max(0,Math.floor(Math.min(...vals)/step)*step-(mode==='weight'?5:0)),hi=Math.max(lo+step,Math.ceil(Math.max(...vals)/step)*step+step),x=i=>pad.l+(points.length===1?pw/2:i*pw/(points.length-1)),y=v=>pad.t+ph-(v-lo)/(hi-lo)*ph;
+ const pad={l:42,r:12,t:14,b:34},pw=w-pad.l-pad.r,ph=h-pad.t-pad.b,vals=points.map(p=>p.value),step=mode==='weight'?5:Math.max(1,Math.ceil(Math.max(...vals)/5)),lo=0,hi=Math.max(mode==='weight'?5:1,Math.ceil(Math.max(...vals)/step)*step),x=i=>pad.l+(points.length===1?pw/2:i*pw/(points.length-1)),y=v=>pad.t+ph-(v-lo)/(hi-lo)*ph;
  ctx.font='11px system-ui';ctx.lineWidth=1;ctx.strokeStyle='#314158';ctx.fillStyle='#9eacc0';for(let k=0;k<=4;k++){const val=lo+(hi-lo)*k/4,yy=y(val);ctx.beginPath();ctx.moveTo(pad.l,yy);ctx.lineTo(w-pad.r,yy);ctx.stroke();ctx.textAlign='right';ctx.fillText(mode==='weight'?Number(val.toFixed(1)):Math.round(val),pad.l-7,yy+4)}
  ctx.strokeStyle='#63d6a3';ctx.lineWidth=2.5;ctx.beginPath();points.forEach((p,i)=>{if(i===0)ctx.moveTo(x(i),y(p.value));else ctx.lineTo(x(i),y(p.value))});ctx.stroke();
  points.forEach((p,i)=>{ctx.beginPath();ctx.arc(x(i),y(p.value),4,0,Math.PI*2);ctx.fillStyle='#63d6a3';ctx.fill();ctx.fillStyle='#edf3fb';ctx.textAlign='center';ctx.fillText(String(p.value),x(i),y(p.value)-9)});
@@ -173,7 +173,7 @@ function drawMaxChart(points){
 function renderHistory(){
  const sel=document.getElementById('historyExercise');const old=sel.value;sel.innerHTML=data.exercises.map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('');if(data.exercises.some(e=>e.id===old))sel.value=old;
  const id=sel.value,period=document.getElementById('historyPeriod').value;const cutoff=new Date();cutoff.setMonth(cutoff.getMonth()-Number(period));
- const rows=[];Object.entries(data.records).sort((a,b)=>b[0].localeCompare(a[0])).forEach(([date,rs])=>{if(period!=='all'&&new Date(date+'T23:59:59')<cutoff)return;const r=rs.find(x=>x.exerciseId===id);if(r)rows.push({date,sets:r.sets})});
+ const rows=[];if(id)Object.entries(data.records).sort((a,b)=>b[0].localeCompare(a[0])).forEach(([date,rs])=>{if(period!=='all'&&new Date(date+'T23:59:59')<cutoff)return;const r=rs.find(x=>x.exerciseId===id);if(r)rows.push({date,sets:r.sets})});
  const total=rows.reduce((n,r)=>n+r.sets.reduce((a,s)=>a+(isNumericWeight(s.weight)?Number(s.weight)*s.reps:0),0),0);
  const points=rows.map(r=>({date:r.date,weight:Math.max(0,...r.sets.filter(s=>isNumericWeight(s.weight)).map(s=>Number(s.weight))),maxReps:Math.max(0,...r.sets.map(s=>Number(s.reps)||0)),totalReps:r.sets.reduce((sum,s)=>sum+(Number(s.reps)||0),0)})).sort((a,b)=>a.date.localeCompare(b.date)).map(p=>({...p,value:p[historyChartMode==='weight'?'weight':historyChartMode==='maxReps'?'maxReps':'totalReps']}));
  document.getElementById('historySummary').innerHTML=`<b>${esc(exById(id)?.name||'種目')}</b><div class="muted" style="margin-top:6px">記録日数：${rows.length}日　／　総ボリューム：${Math.round(total).toLocaleString()} kg　／　最高重量：${points.length?Math.max(...points.map(p=>p.weight))+' kg':'—'}</div>`;
