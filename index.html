@@ -70,7 +70,7 @@ footer{color:var(--muted);font-size:11px;text-align:center;padding:20px}
  <label>種目</label><select id="historyExercise"></select>
  <label>表示期間</label><select id="historyPeriod"><option value="1">直近1か月</option><option value="3">直近3か月</option><option value="6">直近6か月</option><option value="12">直近12か月</option><option value="all">全期間</option></select>
  <div id="historySummary" class="card"></div>
- <div class="card"><h3>最大重量の推移</h3><div class="muted" style="margin-bottom:8px">各日の最高重量（kg）</div><canvas id="maxChart" height="210" style="width:100%;display:block"></canvas><div id="chartEmpty" class="empty hidden">グラフに表示できる記録がありません。</div></div>
+ <div class="card"><div class="row between"><h3 id="chartTitle">最大重量</h3><button id="chartModeButton" class="secondary" style="padding:7px 10px">表示切替</button></div><div class="muted" id="chartDescription" style="margin-bottom:8px">各日の最高重量（kg）</div><canvas id="maxChart" height="210" style="width:100%;display:block"></canvas><div id="chartEmpty" class="empty hidden">グラフに表示できる記録がありません。</div></div>
  <div id="historyList" class="card"></div>
 </section>
 <section id="page-settings" class="hidden">
@@ -98,7 +98,9 @@ function loadData(){try{const x=JSON.parse(localStorage.getItem(KEY));if(x&&Arra
 function persist(){localStorage.setItem(KEY,JSON.stringify(data))}
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const exById=id=>data.exercises.find(e=>e.id===id);
-function weightLabel(w){const s=String(w).trim();return /^(?:\\d+(?:\\.\\d*)?|\\.\\d+)$/.test(s)?s+' kg':s}
+function isNumericWeight(w){return typeof w==='number'||(typeof w==='string'&&w.trim()!==''&&Number.isFinite(Number(w)))}
+function weightLabel(w){const s=String(w).trim();return isNumericWeight(w)?s+' kg':s}
+let historyChartMode='weight';
 function parseWeightCandidates(raw){
  const values=raw.split(',').map(x=>x.trim()).filter(x=>x!=='').map(x=>{
   const n=Number(x);return Number.isFinite(n)?(n>=0?n:null):x;
@@ -150,26 +152,34 @@ function renderDraft(){
 function addSelectedExercise(){const sel=document.getElementById('exerciseSelect'),id=sel.value;if(!id)return;if(draft.some(r=>r.exerciseId===id)){alert('この種目はすでに追加されています');sel.value='';return}const e=exById(id);if(!e){sel.value='';return}const currentDate=document.getElementById('entryDate').value||selectedDate;const previous=Object.entries(data.records).filter(([d,rs])=>d<currentDate&&rs.some(r=>r.exerciseId===id)).sort((a,b)=>b[0].localeCompare(a[0]))[0];const previousRecord=previous?.[1].find(r=>r.exerciseId===id);const sets=previousRecord?previousRecord.sets.map(x=>({weight:e.weights.find(w=>String(w)===String(x.weight))??(e.weights[0]??0),reps:Number(x.reps)})):[{weight:e.weights[0]??0,reps:0}];draft.push({exerciseId:id,sets});renderDraft();sel.value=''}
 document.getElementById('exerciseSelect').onchange=addSelectedExercise;document.getElementById('addExercise').onclick=addSelectedExercise;
 document.getElementById('saveDay').onclick=()=>{const date=document.getElementById('entryDate').value;if(!date){alert('日付を指定してください');return}
- const normalized=draft.map(r=>({...r,sets:r.sets.filter(s=>Number(s.reps)>0).map(s=>({weight:Number(s.weight),reps:Math.floor(Number(s.reps))}))})).filter(r=>r.sets.length);
+ const normalized=draft.map(r=>({...r,sets:r.sets.filter(s=>Number(s.reps)>0).map(s=>({weight:isNumericWeight(s.weight)?Number(s.weight):String(s.weight),reps:Math.floor(Number(s.reps))}))})).filter(r=>r.sets.length);
  if(normalized.length)data.records[date]=normalized;else delete data.records[date];persist();selectedDate=date;viewDate=new Date(date+'T12:00:00');renderCalendar();showPage('calendar')};
 function drawMaxChart(points){
+ const mode=historyChartMode;
+ const modeNames={weight:'最大重量',maxReps:'最高回数（セットごと）',totalReps:'合計回数（全セット）'};
+ const units={weight:'kg',maxReps:'回',totalReps:'回'};
+ document.getElementById('chartTitle').textContent=modeNames[mode];
+ document.getElementById('chartDescription').textContent=mode==='weight'?'各日の最高重量（kg）':mode==='maxReps'?'各日の最高回数（1セットあたり）':'各日の合計回数（全セット）';
+
  const canvas=document.getElementById('maxChart'),empty=document.getElementById('chartEmpty'),ctx=canvas.getContext('2d');
  const dpr=window.devicePixelRatio||1,w=Math.max(280,canvas.clientWidth),h=210;canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
  if(!points.length){canvas.classList.add('hidden');empty.classList.remove('hidden');return}canvas.classList.remove('hidden');empty.classList.add('hidden');
- const pad={l:42,r:12,t:14,b:34},pw=w-pad.l-pad.r,ph=h-pad.t-pad.b,vals=points.map(p=>p.max),lo=Math.max(0,Math.floor(Math.min(...vals)/5)*5-5),hi=Math.max(lo+5,Math.ceil(Math.max(...vals)/5)*5+5),x=i=>pad.l+(points.length===1?pw/2:i*pw/(points.length-1)),y=v=>pad.t+ph-(v-lo)/(hi-lo)*ph;
+ const pad={l:42,r:12,t:14,b:34},pw=w-pad.l-pad.r,ph=h-pad.t-pad.b,vals=points.map(p=>p.value),step=mode==='weight'?5:Math.max(1,Math.ceil((Math.max(...vals)-Math.min(...vals))/5)),lo=Math.max(0,Math.floor(Math.min(...vals)/step)*step-(mode==='weight'?5:0)),hi=Math.max(lo+step,Math.ceil(Math.max(...vals)/step)*step+step),x=i=>pad.l+(points.length===1?pw/2:i*pw/(points.length-1)),y=v=>pad.t+ph-(v-lo)/(hi-lo)*ph;
  ctx.font='11px system-ui';ctx.lineWidth=1;ctx.strokeStyle='#314158';ctx.fillStyle='#9eacc0';for(let k=0;k<=4;k++){const val=lo+(hi-lo)*k/4,yy=y(val);ctx.beginPath();ctx.moveTo(pad.l,yy);ctx.lineTo(w-pad.r,yy);ctx.stroke();ctx.textAlign='right';ctx.fillText(Number(val.toFixed(1)),pad.l-7,yy+4)}
  ctx.strokeStyle='#63d6a3';ctx.lineWidth=2.5;ctx.beginPath();points.forEach((p,i)=>{if(i===0)ctx.moveTo(x(i),y(p.max));else ctx.lineTo(x(i),y(p.max))});ctx.stroke();
- points.forEach((p,i)=>{ctx.beginPath();ctx.arc(x(i),y(p.max),4,0,Math.PI*2);ctx.fillStyle='#63d6a3';ctx.fill();ctx.fillStyle='#edf3fb';ctx.textAlign='center';ctx.fillText(String(p.max),x(i),y(p.max)-9)});
+ points.forEach((p,i)=>{ctx.beginPath();ctx.arc(x(i),y(p.max),4,0,Math.PI*2);ctx.fillStyle='#63d6a3';ctx.fill();ctx.fillStyle='#edf3fb';ctx.textAlign='center';ctx.fillText(String(p.value),x(i),y(p.value)-9)});
  const indices=points.length<=6?points.map((_,i)=>i):[0,Math.floor((points.length-1)/2),points.length-1];indices.forEach(i=>{ctx.fillStyle='#9eacc0';ctx.textAlign='center';ctx.fillText(points[i].date.slice(5).replace('-','/'),x(i),h-10)});
 }
 function renderHistory(){
  const sel=document.getElementById('historyExercise');const old=sel.value;sel.innerHTML=data.exercises.map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('');if(data.exercises.some(e=>e.id===old))sel.value=old;
  const id=sel.value,period=document.getElementById('historyPeriod').value;const cutoff=new Date();cutoff.setMonth(cutoff.getMonth()-Number(period));
  const rows=[];Object.entries(data.records).sort((a,b)=>b[0].localeCompare(a[0])).forEach(([date,rs])=>{if(period!=='all'&&new Date(date+'T23:59:59')<cutoff)return;const r=rs.find(x=>x.exerciseId===id);if(r)rows.push({date,sets:r.sets})});
- const total=rows.reduce((n,r)=>n+r.sets.reduce((a,s)=>a+(Number.isFinite(Number(s.weight))?Number(s.weight)*s.reps:0),0),0),points=rows.map(r=>({date:r.date,max:Math.max(0,...r.sets.map(s=>Number(s.weight)).filter(Number.isFinite))})).sort((a,b)=>a.date.localeCompare(b.date));
- document.getElementById('historySummary').innerHTML=`<b>${esc(exById(id)?.name||'種目')}</b><div class="muted" style="margin-top:6px">記録日数：${rows.length}日　／　総ボリューム：${Math.round(total).toLocaleString()} kg　／　最高重量：${points.length?Math.max(...points.map(p=>p.max))+' kg':'—'}</div>`;
- drawMaxChart(points);document.getElementById('historyList').innerHTML=rows.length?rows.map(r=>`<div class="history-item"><b>${r.date.replaceAll('-','/')}</b><div>${r.sets.map((s,i)=>`${i+1}セット　${esc(weightLabel(s.weight))} × ${s.reps}回`).join('<br>')}</div></div>`).join(''):'<div class="empty">該当期間の記録はありません。</div>';
+ const total=rows.reduce((n,r)=>n+r.sets.reduce((a,s)=>a+(isNumericWeight(s.weight)?Number(s.weight)*s.reps:0),0),0);
+ const points=rows.map(r=>({date:r.date,weight:Math.max(0,...r.sets.filter(s=>isNumericWeight(s.weight)).map(s=>Number(s.weight))),maxReps:Math.max(0,...r.sets.map(s=>Number(s.reps)||0)),totalReps:r.sets.reduce((sum,s)=>sum+(Number(s.reps)||0),0)})).sort((a,b)=>a.date.localeCompare(b.date)).map(p=>({...p,value:p[historyChartMode==='weight'?'weight':historyChartMode==='maxReps'?'maxReps':'totalReps']}));
+ document.getElementById('historySummary').innerHTML=`<b>${esc(exById(id)?.name||'種目')}</b><div class="muted" style="margin-top:6px">記録日数：${rows.length}日　／　総ボリューム：${Math.round(total).toLocaleString()} kg　／　最高重量：${points.length?Math.max(...points.map(p=>p.weight))+' kg':'—'}</div>`;
+ drawMaxChart(points);document.getElementById('historyList').innerHTML=rows.length?rows.map(r=>`<div class="history-item"><b>${r.date.replaceAll('-','/')}</b><div>${r.sets.map((s,i)=>`${i+1}セット目 ${esc(weightLabel(s.weight))}${isNumericWeight(s.weight)?'':' ×'}${isNumericWeight(s.weight)?'×':''}${s.reps}回`).join('<br>')}</div></div>`).join(''):'<div class="empty">該当期間の記録はありません。</div>';
 }
+document.getElementById('chartModeButton').onclick=()=>{historyChartMode=historyChartMode==='weight'?'maxReps':historyChartMode==='maxReps'?'totalReps':'weight';renderHistory()};
 document.getElementById('historyExercise').onchange=renderHistory;document.getElementById('historyPeriod').onchange=renderHistory;window.addEventListener('resize',()=>{if(!document.getElementById('page-history').classList.contains('hidden'))renderHistory()});
 function renderSettings(){
  const root=document.getElementById('exerciseSettings');root.innerHTML=data.exercises.map((e,i)=>`<div class="card"><div class="row between"><h3>${esc(e.name)}</h3><div class="row"><button class="secondary" data-exup="${e.id}" style="padding:7px 10px" ${i===0?'disabled':''} aria-label="上へ">↑</button><button class="secondary" data-exdown="${e.id}" style="padding:7px 10px" ${i===data.exercises.length-1?'disabled':''} aria-label="下へ">↓</button><button class="danger" data-exdel="${e.id}" style="padding:7px 10px">削除</button></div></div>
