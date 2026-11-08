@@ -62,6 +62,7 @@ footer{color:var(--muted);font-size:11px;text-align:center;padding:20px}
  <div class="row between"><h2>トレーニング記録</h2><span class="pill" id="entryDateLabel"></span></div>
  <label for="entryDate">記録日</label><input type="date" id="entryDate">
  <label for="eventInput">イベント（任意）</label><input type="text" id="eventInput" placeholder="例：大会、出張、胸・肩の日">
+ <hr style="border:0;border-top:1px solid #ffffff;margin:14px 0">
  <div class="row" style="margin-top:12px"><select id="exerciseSelect" class="grow"><option value="">種目を選択</option></select><button id="addExercise">種目を追加</button></div>
  <div id="entryList"></div>
  <div class="actions" style="margin-top:14px"><button id="saveDay" class="grow">記録を保存</button><button id="backCal" class="secondary">カレンダーへ</button></div>
@@ -118,7 +119,7 @@ function renderCalendar(){
  const first=new Date(y,m,1).getDay(),last=new Date(y,m+1,0).getDate();
  for(let i=0;i<first;i++)c.insertAdjacentHTML('beforeend','<div class="day blank"></div>');
  for(let d=1;d<=last;d++){const iso=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`,hasWorkout=(data.records[iso]||[]).length>0,hasEvent=String(data.events?.[iso]||'').trim().length>0;
- const el=document.createElement('button');el.className='day'+(iso===selectedDate?' selected':'')+(iso===todayISO()?' today':'');el.innerHTML=`<span>${d}</span><span class="dots">${hasWorkout?'<span class="dot workout" title="トレーニング記録"></span>':''}${hasEvent?'<span class="dot event" title="イベント"></span>':''}</span>`;el.onclick=()=>{const now=Date.now(),isDouble=lastCalendarTap?.date===iso&&now-lastCalendarTap.time<=700;lastCalendarTap={date:iso,time:now};selectedDate=iso;renderCalendar();renderDaySummary();if(isDouble){lastCalendarTap=null;document.getElementById('entryDate').value=iso;showPage('entry');renderEntry()}};c.appendChild(el)}
+ const el=document.createElement('button');el.className='day'+(iso===selectedDate?' selected':'')+(iso===todayISO()?' today':'');el.innerHTML=`<span>${d}</span><span class="dots">${hasWorkout?'<span class="dot workout" title="トレーニング記録"></span>':''}${hasEvent?'<span class="dot event" title="イベント"></span>':''}</span>`;el.onclick=()=>{const isSelected=selectedDate===iso;selectedDate=iso;lastCalendarTap=null;renderCalendar();renderDaySummary();if(isSelected){document.getElementById('entryDate').value=iso;showPage('entry');renderEntry()}};c.appendChild(el)}
  renderDaySummary();
 }
 function renderDaySummary(){
