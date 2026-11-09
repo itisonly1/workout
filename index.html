@@ -6,8 +6,15 @@
 <meta name="theme-color" content="#101827">
 <title>Workout Log</title>
 <link rel="manifest" href="manifest.webmanifest">
+<script>try{document.documentElement.dataset.theme=localStorage.getItem("workout-theme-v1")||"dark"}catch(e){document.documentElement.dataset.theme="dark"}</script>
 <style>
 :root{--bg:#0d1420;--panel:#172235;--panel2:#202e44;--text:#edf3fb;--muted:#9eacc0;--accent:#63d6a3;--line:#314158;--danger:#ff7777}
+:root[data-theme="light"]{--bg:#f4f6f8;--panel:#ffffff;--panel2:#e8edf2;--text:#17212b;--muted:#5f6b78;--accent:#16865b;--line:#cbd3dc;--danger:#c93445}
+:root[data-theme="light"] header,:root[data-theme="light"] nav{background:#ffffff}
+:root[data-theme="light"] input,:root[data-theme="light"] select{background:#ffffff;color:var(--text)}
+:root[data-theme="light"] .day.selected{background:#d9f0e5;border-color:var(--accent)}
+:root[data-theme="light"] button.danger{background:#f9dfe2;color:#8b1725}
+:root[data-theme="light"] .day.today{border-color:var(--accent)}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px system-ui,-apple-system,"Noto Sans JP",sans-serif;padding-bottom:82px}
 header{padding:18px 16px 12px;background:#101827;position:sticky;top:0;z-index:5;border-bottom:1px solid var(--line)}
 h1{font-size:21px;margin:0;font-weight:750}.sub{color:var(--muted);font-size:12px;margin-top:3px}
@@ -86,13 +93,18 @@ footer{color:var(--muted);font-size:11px;text-align:center;padding:20px}
   <div class="actions"><button id="exportData">バックアップを書き出す</button><button class="secondary" id="importButton">バックアップを読み込む</button></div>
   <input type="file" id="importFile" accept="application/json,.json" class="hidden">
  </div>
+ <div class="card">
+  <h3>表示モード</h3>
+  <label for="themeSelect">テーマ</label>
+  <select id="themeSelect"><option value="dark">ダークモード</option><option value="light">ライトモード</option></select>
+ </div>
 </section>
 </main>
 <nav>
  <button data-page="calendar" class="active">カレンダー</button><button data-page="entry">記録入力</button><button data-page="history">履歴</button><button data-page="settings">設定</button>
 </nav>
 <script>
-const KEY='workout-log-v1';
+const KEY='workout-log-v1',THEME_KEY='workout-theme-v1';
 const todayISO=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
 let data=loadData(), selectedDate=todayISO(), viewDate=new Date(),lastCalendarTap=null;
 let draft={};
@@ -111,6 +123,9 @@ function parseWeightCandidates(raw){
  for(const v of values){const k=typeof v==='number'?'n:'+v:'s:'+v;if(!seen.has(k)){seen.add(k);unique.push(v)}}
  return unique.sort((a,b)=>typeof a==='number'&&typeof b==='number'?a-b:typeof a==='number'?-1:typeof b==='number'?1:String(a).localeCompare(String(b),'ja'));
 }
+function applyTheme(theme){const value=theme==='light'?'light':'dark';document.documentElement.dataset.theme=value;localStorage.setItem(THEME_KEY,value);document.querySelector('meta[name="theme-color"]').content=value==='light'?'#ffffff':'#101827';const select=document.getElementById('themeSelect');if(select)select.value=value;if(!document.getElementById('page-history').classList.contains('hidden'))renderHistory()}
+document.getElementById('themeSelect').value=document.documentElement.dataset.theme||'dark';
+document.getElementById('themeSelect').onchange=e=>applyTheme(e.target.value);
 function showPage(p){document.querySelectorAll('main>section').forEach(s=>s.classList.add('hidden'));document.getElementById('page-'+p).classList.remove('hidden');document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===p));if(p==='history')renderHistory();if(p==='settings')renderSettings();if(p==='entry')renderEntry()}
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>showPage(b.dataset.page));
 function renderCalendar(){
@@ -173,10 +188,10 @@ function drawMaxChart(points){
  const dpr=window.devicePixelRatio||1,w=Math.max(280,canvas.clientWidth),h=210;canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
  if(!points.length){canvas.classList.add('hidden');empty.classList.remove('hidden');return}canvas.classList.remove('hidden');empty.classList.add('hidden');
  const pad={l:42,r:12,t:14,b:34},pw=w-pad.l-pad.r,ph=h-pad.t-pad.b,vals=points.map(p=>p.value),dataMin=Math.min(...vals),dataMax=Math.max(...vals),rawRange=dataMax-dataMin,range=rawRange||Math.max(1,Math.abs(dataMax)*0.2),niceStep=range/4,power=Math.pow(10,Math.floor(Math.log10(niceStep))),fraction=niceStep/power,weightStep=(fraction<=1?1:fraction<=2?2:fraction<=5?5:10)*power,step=mode==='weight'?weightStep:Math.max(1,Math.ceil(range/4)),padding=Math.max(step*0.5,range*0.1),lo=Math.floor((dataMin-padding)/step)*step,hi=Math.ceil((dataMax+padding)/step)*step,x=i=>pad.l+(points.length===1?pw/2:i*pw/(points.length-1)),y=v=>pad.t+ph-(v-lo)/(hi-lo)*ph;
- ctx.font='11px system-ui';ctx.lineWidth=1;ctx.strokeStyle='#314158';ctx.fillStyle='#9eacc0';const axisTicks=mode==='weight'?Array.from({length:5},(_,k)=>lo+(hi-lo)*k/4):Array.from({length:Math.floor((hi-lo)/step)+1},(_,k)=>lo+k*step);axisTicks.forEach(val=>{const yy=y(val);ctx.beginPath();ctx.moveTo(pad.l,yy);ctx.lineTo(w-pad.r,yy);ctx.stroke();ctx.textAlign='right';ctx.fillText(mode==='weight'?Number(val.toFixed(1)):Math.round(val),pad.l-7,yy+4)});
- ctx.strokeStyle='#63d6a3';ctx.lineWidth=2.5;ctx.beginPath();points.forEach((p,i)=>{if(i===0)ctx.moveTo(x(i),y(p.value));else ctx.lineTo(x(i),y(p.value))});ctx.stroke();
- points.forEach((p,i)=>{ctx.beginPath();ctx.arc(x(i),y(p.value),4,0,Math.PI*2);ctx.fillStyle='#63d6a3';ctx.fill();ctx.fillStyle='#edf3fb';ctx.textAlign='center';ctx.fillText(String(p.value),x(i),y(p.value)-9)});
- const indices=points.length<=6?points.map((_,i)=>i):[0,Math.floor((points.length-1)/2),points.length-1];indices.forEach(i=>{ctx.fillStyle='#9eacc0';ctx.textAlign='center';ctx.fillText(points[i].date.slice(5).replace('-','/'),x(i),h-10)});
+ const light=document.documentElement.dataset.theme==='light';ctx.font='11px system-ui';ctx.lineWidth=1;ctx.strokeStyle=light?'#cbd3dc':'#314158';ctx.fillStyle=light?'#5f6b78':'#9eacc0';const axisTicks=mode==='weight'?Array.from({length:5},(_,k)=>lo+(hi-lo)*k/4):Array.from({length:Math.floor((hi-lo)/step)+1},(_,k)=>lo+k*step);axisTicks.forEach(val=>{const yy=y(val);ctx.beginPath();ctx.moveTo(pad.l,yy);ctx.lineTo(w-pad.r,yy);ctx.stroke();ctx.textAlign='right';ctx.fillText(mode==='weight'?Number(val.toFixed(1)):Math.round(val),pad.l-7,yy+4)});
+ ctx.strokeStyle=light?'#16865b':'#63d6a3';ctx.lineWidth=2.5;ctx.beginPath();points.forEach((p,i)=>{if(i===0)ctx.moveTo(x(i),y(p.value));else ctx.lineTo(x(i),y(p.value))});ctx.stroke();
+ points.forEach((p,i)=>{ctx.beginPath();ctx.arc(x(i),y(p.value),4,0,Math.PI*2);ctx.fillStyle=light?'#16865b':'#63d6a3';ctx.fill();ctx.fillStyle=light?'#17212b':'#edf3fb';ctx.textAlign='center';ctx.fillText(String(p.value),x(i),y(p.value)-9)});
+ const indices=points.length<=6?points.map((_,i)=>i):[0,Math.floor((points.length-1)/2),points.length-1];indices.forEach(i=>{ctx.fillStyle=light?'#5f6b78':'#9eacc0';ctx.textAlign='center';ctx.fillText(points[i].date.slice(5).replace('-','/'),x(i),h-10)});
 }
 function renderHistory(){
  const sel=document.getElementById('historyExercise');const old=sel.value;sel.innerHTML=data.exercises.map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('');if(data.exercises.some(e=>e.id===old))sel.value=old;
