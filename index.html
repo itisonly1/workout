@@ -16,6 +16,9 @@
 :root[data-theme="light"] button.danger{background:#f9dfe2;color:#8b1725}
 :root[data-theme="light"] .day.today{border-color:var(--accent)}
 :root[data-theme="light"] #editDay,:root[data-theme="light"] #addExercise,:root[data-theme="light"] #saveDay,:root[data-theme="light"] #createExercise,:root[data-theme="light"] #exportData,:root[data-theme="light"] [data-saveex]{background:#dcefe5;color:#28543e;border:1px solid #c5e2d2}
+:root[data-theme="light"] .calendar{gap:0}
+:root[data-theme="light"] .calendar .dow,:root[data-theme="light"] .calendar .day{border:0;border-radius:0;box-shadow:inset 0 0 0 .5px var(--line)}
+:root[data-theme="light"] .calendar .day.today{box-shadow:inset 0 0 0 2px var(--accent)}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px system-ui,-apple-system,"Noto Sans JP",sans-serif;padding-bottom:82px}
 header{padding:18px 16px 12px;background:#101827;position:sticky;top:0;z-index:5;border-bottom:1px solid var(--line)}
 h1{font-size:21px;margin:0;font-weight:750}.sub{color:var(--muted);font-size:12px;margin-top:3px}
@@ -71,8 +74,8 @@ footer{color:var(--muted);font-size:11px;text-align:center;padding:20px}
  <label for="entryDate">記録日</label><input type="date" id="entryDate">
  <label for="eventInput">イベント（任意）</label><input type="text" id="eventInput" placeholder="例：大会、出張、胸・肩の日">
  <hr style="border:0;border-top:1px solid #ffffff;margin:14px 0">
- <div class="row" style="margin-top:12px"><select id="exerciseSelect" class="grow"><option value="">種目を選択</option></select><button id="addExercise">種目を追加</button></div>
  <div id="entryList"></div>
+ <div class="row" style="margin-top:12px"><select id="exerciseSelect" class="grow"><option value="">種目を選択</option></select><button id="addExercise">種目を追加</button></div>
  <div class="actions" style="margin-top:14px"><button id="saveDay" class="grow">記録を保存</button><button id="backCal" class="secondary">カレンダーへ</button></div>
 </section>
 <section id="page-history" class="hidden">
@@ -115,6 +118,7 @@ const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'
 const exById=id=>data.exercises.find(e=>e.id===id);
 function isNumericWeight(w){return typeof w==='number'&&Number.isFinite(w)}
 function weightLabel(w){const s=String(w).trim();return isNumericWeight(w)?s+' kg':s}
+function orderedWeights(weights){return [...weights].sort((a,b)=>typeof a==='number'&&typeof b==='number'?a-b:typeof a==='number'?1:typeof b==='number'?-1:String(a).localeCompare(String(b),'ja'))}
 let historyChartMode='weight';
 function parseWeightCandidates(raw){
  const values=raw.split(',').map(x=>x.trim()).filter(x=>x!=='').map(x=>{
@@ -161,7 +165,7 @@ function renderEntry(){
 function renderDraft(){
  const root=document.getElementById('entryList');
  root.innerHTML=draft.map((r,idx)=>{const e=exById(r.exerciseId);if(!e)return '';return `<div class="card exercise-block"><div class="row between"><h3>${esc(e.name)}</h3><button class="danger" data-remove="${idx}" style="padding:7px 10px">種目を外す</button></div>
- ${r.sets.map((s,si)=>`<div class="set-row"><span class="num">${si+1}セット</span><select data-w="${idx},${si}">${e.weights.map(w=>`<option value="${esc(String(w))}" ${String(s.weight)===String(w)?'selected':''}>${esc(weightLabel(w))}</option>`).join('')}</select><div class="rep-wrap"><input type="number" min="0" step="1" inputmode="numeric" placeholder="回数" value="${s.reps}" data-r="${idx},${si}"><div class="rep-control">${[[10,'+10'],[1,'+1'],[-1,'-1'],[-10,'-10']].map(([v,t])=>`<button type="button" class="secondary" data-adjust="${idx},${si},${v}">${t}</button>`).join('')}</div></div><button class="secondary" data-delset="${idx},${si}" style="padding:7px">×</button></div>`).join('')}
+ ${r.sets.map((s,si)=>`<div class="set-row"><span class="num">${si+1}セット</span><select data-w="${idx},${si}">${orderedWeights(e.weights).map(w=>`<option value="${esc(String(w))}" ${String(s.weight)===String(w)?'selected':''}>${esc(weightLabel(w))}</option>`).join('')}</select><div class="rep-wrap"><input type="number" min="0" step="1" inputmode="numeric" placeholder="回数" value="${s.reps}" data-r="${idx},${si}"><div class="rep-control">${[[10,'+10'],[1,'+1'],[-1,'-1'],[-10,'-10']].map(([v,t])=>`<button type="button" class="secondary" data-adjust="${idx},${si},${v}">${t}</button>`).join('')}</div></div><button class="secondary" data-delset="${idx},${si}" style="padding:7px">×</button></div>`).join('')}
  <button class="secondary" data-addset="${idx}" style="width:100%;margin-top:6px">＋ セット追加</button></div>`}).join('');
  root.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{draft.splice(+b.dataset.remove,1);renderDraft()});
  root.querySelectorAll('[data-addset]').forEach(b=>b.onclick=()=>{const r=draft[+b.dataset.addset],last=r.sets[r.sets.length-1];r.sets.push({weight:last?.weight??(exById(r.exerciseId).weights[0]??0),reps:Number(last?.reps??0)});renderDraft()});
@@ -170,14 +174,14 @@ function renderDraft(){
  root.querySelectorAll('[data-r]').forEach(el=>el.onchange=()=>{const [i,j]=el.dataset.r.split(',').map(Number);draft[i].sets[j].reps=Math.max(0,Math.floor(Number(el.value)||0))});
  root.querySelectorAll('[data-adjust]').forEach(b=>b.onclick=()=>{const [i,j,v]=b.dataset.adjust.split(',').map(Number);const input=root.querySelector(`[data-r="${i},${j}"]`);const next=Math.max(0,Math.floor(Number(input.value)||0)+v);input.value=next;draft[i].sets[j].reps=next});
 }
-function addSelectedExercise(){const sel=document.getElementById('exerciseSelect'),id=sel.value;if(!id)return;if(draft.some(r=>r.exerciseId===id)){alert('この種目はすでに追加されています');sel.value='';return}const e=exById(id);if(!e){sel.value='';return}const currentDate=document.getElementById('entryDate').value||selectedDate;const previous=Object.entries(data.records).filter(([d,rs])=>d<currentDate&&rs.some(r=>r.exerciseId===id)).sort((a,b)=>b[0].localeCompare(a[0]))[0];const previousRecord=previous?.[1].find(r=>r.exerciseId===id);const sets=previousRecord?previousRecord.sets.map(x=>({weight:e.weights.find(w=>String(w)===String(x.weight))??(e.weights[0]??0),reps:Number(x.reps)})):[{weight:e.weights[0]??0,reps:0}];draft.push({exerciseId:id,sets});renderDraft();sel.value=''}
+function addSelectedExercise(){const sel=document.getElementById('exerciseSelect'),id=sel.value;if(!id)return;if(draft.some(r=>r.exerciseId===id)){alert('この種目はすでに追加されています');sel.value='';return}const e=exById(id);if(!e){sel.value='';return}const currentDate=document.getElementById('entryDate').value||selectedDate;const previous=Object.entries(data.records).filter(([d,rs])=>d<currentDate&&rs.some(r=>r.exerciseId===id)).sort((a,b)=>b[0].localeCompare(a[0]))[0];const previousRecord=previous?.[1].find(r=>r.exerciseId===id);if(!e.weights.length){alert('この種目は重量候補が未設定です。設定画面で重量候補を登録してください。');sel.value='';return}const priorSet=previousRecord?.sets?.[0];const defaultWeight=orderedWeights(e.weights)[0];const sets=[priorSet?{weight:e.weights.find(w=>String(w)===String(priorSet.weight))??defaultWeight,reps:Number(priorSet.reps)}:{weight:defaultWeight,reps:0}];draft.push({exerciseId:id,sets});renderDraft();sel.value=''}
 document.getElementById('exerciseSelect').onchange=addSelectedExercise;document.getElementById('addExercise').onclick=addSelectedExercise;
 document.getElementById('saveDay').onclick=()=>{const date=document.getElementById('entryDate').value;if(!date){alert('日付を指定してください');return}
  const normalized=draft.map(r=>({...r,sets:r.sets.filter(s=>Number(s.reps)>0).map(s=>({weight:isNumericWeight(s.weight)?Number(s.weight):String(s.weight),reps:Math.floor(Number(s.reps))}))})).filter(r=>r.sets.length);
  const event=String(document.getElementById('eventInput').value||'').trim();
  if(normalized.length)data.records[date]=normalized;else delete data.records[date];
  if(event){if(!data.events)data.events={};data.events[date]=event}else if(data.events)delete data.events[date];
- persist();selectedDate=date;viewDate=new Date(date+'T12:00:00');renderCalendar();showPage('calendar')};
+ persist();selectedDate=date;viewDate=new Date(date+'T12:00:00');draft=JSON.parse(JSON.stringify(normalized));renderCalendar();renderEntry()};
 function drawMaxChart(points){
  const mode=historyChartMode;
  const modeNames={weight:'最大重量',maxReps:'最高回数（セットごと）',totalReps:'合計回数（全セット）'};
@@ -208,16 +212,16 @@ document.getElementById('historyExercise').onchange=renderHistory;document.getEl
 function renderSettings(){
  const root=document.getElementById('exerciseSettings');root.innerHTML=data.exercises.map((e,i)=>`<div class="card"><div class="row between"><h3>${esc(e.name)}</h3><div class="row"><button class="secondary" data-exup="${e.id}" style="padding:7px 10px" ${i===0?'disabled':''} aria-label="上へ">↑</button><button class="secondary" data-exdown="${e.id}" style="padding:7px 10px" ${i===data.exercises.length-1?'disabled':''} aria-label="下へ">↓</button><button class="danger" data-exdel="${e.id}" style="padding:7px 10px">削除</button></div></div>
  <label>種目名</label><input data-name="${e.id}" value="${esc(e.name)}">
- <label>重量候補（kg・カンマ区切り）</label><input data-weights="${e.id}" value="${e.weights.join(', ')}">
+ <label>重量候補（kg・カンマ区切り）</label><input type="text" inputmode="decimal" data-weights="${e.id}" value="${e.weights.join(', ')}">
  <button data-saveex="${e.id}" style="margin-top:9px;width:100%">設定を保存</button></div>`).join('');
- const applySettingsInputs=()=>{const updates=[];for(const e of data.exercises){const name=root.querySelector(`[data-name="${e.id}"]`).value.trim();const raw=root.querySelector(`[data-weights="${e.id}"]`).value;const weights=parseWeightCandidates(raw);if(!name||!weights.length){alert('種目名と重量候補を正しく入力してください');return false}updates.push({e,name,weights})}updates.forEach(x=>{x.e.name=x.name;x.e.weights=x.weights});return true};
+ const applySettingsInputs=()=>{const updates=[];for(const e of data.exercises){const name=root.querySelector(`[data-name="${e.id}"]`).value.trim();const raw=root.querySelector(`[data-weights="${e.id}"]`).value;const weights=parseWeightCandidates(raw);if(!name){alert('種目名を入力してください');return false}updates.push({e,name,weights})}updates.forEach(x=>{x.e.name=x.name;x.e.weights=x.weights});return true};
  root.querySelectorAll('[data-saveex]').forEach(b=>b.onclick=()=>{if(!applySettingsInputs())return;persist();renderSettings();alert('設定を保存しました')});
  const moveExercise=(id,delta)=>{if(!applySettingsInputs())return;const i=data.exercises.findIndex(e=>e.id===id),j=i+delta;if(j<0||j>=data.exercises.length)return;[data.exercises[i],data.exercises[j]]=[data.exercises[j],data.exercises[i]];persist();renderSettings()};
  root.querySelectorAll('[data-exup]').forEach(b=>b.onclick=()=>moveExercise(b.dataset.exup,-1));
  root.querySelectorAll('[data-exdown]').forEach(b=>b.onclick=()=>moveExercise(b.dataset.exdown,1));
  root.querySelectorAll('[data-exdel]').forEach(b=>b.onclick=()=>{if(!confirm('種目を削除しますか？過去の記録も閲覧対象から外れます。'))return;data.exercises=data.exercises.filter(e=>e.id!==b.dataset.exdel);persist();renderSettings()});
 }
-document.getElementById('createExercise').onclick=()=>{const input=document.getElementById('newExerciseName'),name=input.value.trim();if(!name)return;if(data.exercises.some(e=>e.name===name)){alert('同じ名前の種目があります');return}data.exercises.push({id:'ex_'+Date.now(),name,weights:[20,30,40,50,60,70,80,90,100]});persist();input.value='';renderSettings()};
+document.getElementById('createExercise').onclick=()=>{const input=document.getElementById('newExerciseName'),name=input.value.trim();if(!name)return;if(data.exercises.some(e=>e.name===name)){alert('同じ名前の種目があります');return}const id='ex_'+Date.now();data.exercises.push({id,name,weights:[]});persist();input.value='';renderSettings();const candidateInput=document.querySelector(`[data-weights="${id}"]`);if(candidateInput){candidateInput.focus();candidateInput.scrollIntoView({behavior:'smooth',block:'center'})}};
 document.getElementById('exportData').onclick=()=>{const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='workout-log-backup.json';a.click();URL.revokeObjectURL(url)};
 document.getElementById('importButton').onclick=()=>document.getElementById('importFile').click();
 document.getElementById('importFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const x=JSON.parse(await f.text());if(!Array.isArray(x.exercises)||!x.records)throw Error();if(!x.events||typeof x.events!=='object')x.events={};if(!confirm('現在の記録を読み込んだデータで置き換えますか？'))return;data=x;persist();renderCalendar();alert('復元しました')}catch(err){alert('バックアップファイルを読み込めませんでした')}e.target.value=''};
