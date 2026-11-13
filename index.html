@@ -140,7 +140,7 @@ function renderCalendar(){
  const c=document.getElementById('calendar');c.innerHTML=['日','月','火','水','木','金','土'].map(x=>`<div class="dow">${x}</div>`).join('');
  const first=new Date(y,m,1).getDay(),last=new Date(y,m+1,0).getDate();
  for(let i=0;i<first;i++)c.insertAdjacentHTML('beforeend','<div class="day blank"></div>');
- for(let d=1;d<=last;d++){const iso=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`,dayRecords=data.records[iso]||[],hasWorkout=dayRecords.length>0,hasJujitsu=dayRecords.some(r=>String(exById(r.exerciseId)?.name||'').includes('柔術')),hasEvent=String(data.events?.[iso]||'').trim().length>0;
+ for(let d=1;d<=last;d++){const iso=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`,dayRecords=data.records[iso]||[],hasWorkout=dayRecords.some(r=>{const name=String(exById(r.exerciseId)?.name||'');return name!==''&&!name.includes('柔術')}),hasJujitsu=dayRecords.some(r=>String(exById(r.exerciseId)?.name||'').includes('柔術')),hasEvent=String(data.events?.[iso]||'').trim().length>0;
  const el=document.createElement('button');el.className='day'+(iso===selectedDate?' selected':'')+(iso===todayISO()?' today':'');el.innerHTML=`<span>${d}</span><span class="dots"><span class="dot-row">${hasEvent?'<span class="dot event" title="イベント"></span>':''}</span><span class="dot-row">${hasWorkout?'<span class="dot workout" title="トレーニング記録"></span>':''}${hasJujitsu?'<span class="dot jujitsu" title="柔術"></span>':''}</span></span>`;el.onclick=()=>{const isSelected=selectedDate===iso;selectedDate=iso;lastCalendarTap=null;renderCalendar();renderDaySummary();if(isSelected){document.getElementById('entryDate').value=iso;showPage('entry');renderEntry()}};c.appendChild(el)}
  renderDaySummary();
 }
