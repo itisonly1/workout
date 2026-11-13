@@ -16,7 +16,7 @@
 :root[data-theme="light"] button.danger{background:#f9dfe2;color:#8b1725}
 :root[data-theme="light"] .day.today{border-color:var(--accent)}
 :root[data-theme="light"] #editDay,:root[data-theme="light"] #addExercise,:root[data-theme="light"] #saveDay,:root[data-theme="light"] #createExercise,:root[data-theme="light"] #exportData{background:#dcefe5;color:#28543e;border:1px solid #c5e2d2}
-:root[data-theme="light"] #page-entry hr{border-top-color:#555}
+:root[data-theme="light"] #page-entry .entry-divider{border-top:1px solid #555!important}
 :root[data-theme="light"] .calendar{gap:0}
 :root[data-theme="light"] .calendar .dow,:root[data-theme="light"] .calendar .day{border:0;border-radius:0;box-shadow:inset 0 0 0 .5px var(--line)}
 :root[data-theme="light"] .calendar .day.today{box-shadow:inset 0 0 0 2px var(--accent)}
@@ -74,7 +74,7 @@ footer{color:var(--muted);font-size:11px;text-align:center;padding:20px}
  <div class="row between"><h2>トレーニング記録</h2><span class="pill" id="entryDateLabel"></span></div>
  <label for="entryDate">記録日</label><input type="date" id="entryDate">
  <label for="eventInput">イベント（任意）</label><input type="text" id="eventInput" placeholder="例：大会、出張、胸・肩の日">
- <hr style="border:0;border-top:1px solid #ffffff;margin:14px 0">
+ <hr class="entry-divider" style="border:0;border-top:1px solid #ffffff;margin:14px 0">
  <div id="entryList"></div>
  <div class="row" style="margin-top:12px"><select id="exerciseSelect" class="grow"><option value="">種目を選択</option></select><button id="addExercise">種目を追加</button></div>
  <div class="actions" style="margin-top:14px"><button id="saveDay" class="grow">記録を保存</button><button id="backCal" class="secondary">カレンダーへ</button></div>
