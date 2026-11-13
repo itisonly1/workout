@@ -122,7 +122,7 @@ function weightLabel(w){const s=String(w).trim();return isNumericWeight(w)?s+' k
 function orderedWeights(weights){return [...weights].sort((a,b)=>typeof a==='number'&&typeof b==='number'?a-b:typeof a==='number'?1:typeof b==='number'?-1:String(a).localeCompare(String(b),'ja'))}
 let historyChartMode='weight';
 function parseWeightCandidates(raw){
- const values=raw.split(',').map(x=>x.trim()).filter(x=>x!=='').map(x=>{
+ const values=raw.split(/[,，、\\s]+/u).map(x=>x.trim()).filter(x=>x!=='').map(x=>{
   const n=Number(x);return Number.isFinite(n)?(n>=0?n:null):x;
  }).filter(x=>x!==null);
  const unique=[];const seen=new Set();
@@ -214,8 +214,9 @@ document.getElementById('historyExercise').onchange=renderHistory;document.getEl
 function renderSettings(){
  const root=document.getElementById('exerciseSettings');root.innerHTML=data.exercises.map((e,i)=>`<div class="card"><div class="row between"><h3>${esc(e.name)}</h3><div class="row"><button class="secondary" data-exup="${e.id}" style="padding:7px 10px" ${i===0?'disabled':''} aria-label="上へ">↑</button><button class="secondary" data-exdown="${e.id}" style="padding:7px 10px" ${i===data.exercises.length-1?'disabled':''} aria-label="下へ">↓</button><button class="danger" data-exdel="${e.id}" style="padding:7px 10px">削除</button></div></div>
  <label>種目名</label><input data-name="${e.id}" value="${esc(e.name)}">
- <label>重量候補（kg・カンマ区切り）</label><input type="text" inputmode="decimal" data-weights="${e.id}" value="${e.weights.join(', ')}"></div>`).join('');
+ <label>重量候補（kg・カンマ区切り）</label><input type="text" inputmode="text" data-weights="${e.id}" value="${e.weights.join(', ')}"></div>`).join('');
  const moveExercise=(id,delta)=>{if(!applySettingsInputs())return;persist();const card=root.querySelector(`[data-exup="${id}"],[data-exdown="${id}"]`)?.closest('.card');if(!card)return;const beforeTop=card.getBoundingClientRect().top;const i=data.exercises.findIndex(e=>e.id===id),j=i+delta;if(j<0||j>=data.exercises.length)return;[data.exercises[i],data.exercises[j]]=[data.exercises[j],data.exercises[i]];persist();renderSettings();requestAnimationFrame(()=>{const movedCard=root.querySelector(`[data-exup="${id}"],[data-exdown="${id}"]`)?.closest('.card');if(!movedCard)return;const adjustPosition=()=>{const deltaY=movedCard.getBoundingClientRect().top-beforeTop;if(Math.abs(deltaY)<1)return;let scroller=movedCard.parentElement;while(scroller&&scroller!==document.body&&scroller!==document.documentElement){const style=getComputedStyle(scroller);if(/auto|scroll|overlay/.test(style.overflowY)&&scroller.scrollHeight>scroller.clientHeight){scroller.scrollTop+=deltaY;return}scroller=scroller.parentElement}window.scrollBy(0,deltaY)};adjustPosition();requestAnimationFrame(adjustPosition)})};
+ root.querySelectorAll('[data-weights]').forEach(input=>input.addEventListener('blur',()=>{input.value=parseWeightCandidates(input.value).join(', ')}));
  root.querySelectorAll('[data-exup]').forEach(b=>b.onclick=()=>moveExercise(b.dataset.exup,-1));
  root.querySelectorAll('[data-exdown]').forEach(b=>b.onclick=()=>moveExercise(b.dataset.exdown,1));
  root.querySelectorAll('[data-exdel]').forEach(b=>b.onclick=()=>{if(!confirm('種目を削除しますか？過去の記録も閲覧対象から外れます。'))return;if(!applySettingsInputs())return;data.exercises=data.exercises.filter(e=>e.id!==b.dataset.exdel);persist();renderSettings()});
