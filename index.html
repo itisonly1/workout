@@ -122,7 +122,7 @@ function weightLabel(w){const s=String(w).trim();return isNumericWeight(w)?s+' k
 function orderedWeights(weights){return [...weights].sort((a,b)=>typeof a==='number'&&typeof b==='number'?a-b:typeof a==='number'?1:typeof b==='number'?-1:String(a).localeCompare(String(b),'ja'))}
 let historyChartMode='weight';
 function parseWeightCandidates(raw){
- const values=raw.split(/[,，、\\s]+/u).map(x=>x.trim()).filter(x=>x!=='').map(x=>{
+ const values=raw.split(/[,，、\s]+/u).map(x=>x.trim()).filter(x=>x!=='').map(x=>{
   const n=Number(x);return Number.isFinite(n)?(n>=0?n:null):x;
  }).filter(x=>x!==null);
  const unique=[];const seen=new Set();
