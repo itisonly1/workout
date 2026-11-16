@@ -52,6 +52,7 @@ h2{font-size:17px;margin:4px 0 10px}h3{font-size:15px;margin:0 0 8px}
 .exercise-block{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
 .exercise-block:first-child{border:0;padding:0;margin:0}
 .history-item{display:grid;grid-template-columns:90px 1fr;gap:8px;padding:9px 0;border-bottom:1px solid var(--line)}
+.save-toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:20;background:#26384b;color:#fff;border:1px solid #52657b;border-radius:12px;padding:11px 20px;box-shadow:0 4px 18px #0005;font-size:14px;font-weight:700;white-space:nowrap;cursor:pointer}.save-toast.hidden{display:none!important}:root[data-theme="light"] .save-toast{background:#26384b;color:#fff;border-color:#52657b}
 .hidden{display:none!important}.empty{padding:28px 12px;text-align:center;color:var(--muted)}
 .actions{display:flex;gap:7px;flex-wrap:wrap}.actions button{flex:1}
 footer{color:var(--muted);font-size:11px;text-align:center;padding:20px}
@@ -108,6 +109,7 @@ footer{color:var(--muted);font-size:11px;text-align:center;padding:20px}
 <nav>
  <button data-page="calendar" class="active">カレンダー</button><button data-page="entry">記録入力</button><button data-page="history">履歴</button><button data-page="settings">設定</button>
 </nav>
+<div id="saveToast" class="save-toast hidden" role="status" aria-live="polite">保存しました</div>
 <script>
 const KEY='workout-log-v1',THEME_KEY='workout-theme-v1';
 const todayISO=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
@@ -178,12 +180,38 @@ function renderDraft(){
 }
 function addSelectedExercise(){const sel=document.getElementById('exerciseSelect'),id=sel.value;if(!id)return;if(draft.some(r=>r.exerciseId===id)){alert('この種目はすでに追加されています');sel.value='';return}const e=exById(id);if(!e){sel.value='';return}const currentDate=document.getElementById('entryDate').value||selectedDate;const previous=Object.entries(data.records).filter(([d,rs])=>d<currentDate&&rs.some(r=>r.exerciseId===id)).sort((a,b)=>b[0].localeCompare(a[0]))[0];const previousRecord=previous?.[1].find(r=>r.exerciseId===id);if(!e.weights.length){alert('この種目は重量候補が未設定です。設定画面で重量候補を登録してください。');sel.value='';return}const priorSet=previousRecord?.sets?.[0];const defaultWeight=orderedWeights(e.weights)[0];const sets=[priorSet?{weight:e.weights.find(w=>String(w)===String(priorSet.weight))??defaultWeight,reps:Number(priorSet.reps)}:{weight:defaultWeight,reps:0}];draft.push({exerciseId:id,sets});renderDraft();sel.value=''}
 document.getElementById('exerciseSelect').onchange=addSelectedExercise;document.getElementById('addExercise').onclick=addSelectedExercise;
+let saveToastTimer=null;
+function hideSaveToast(){
+ const toast=document.getElementById('saveToast');
+ toast.classList.add('hidden');
+ if(saveToastTimer!==null){clearTimeout(saveToastTimer);saveToastTimer=null}
+ document.removeEventListener('pointerdown',onSaveToastActivity,true);
+ document.removeEventListener('keydown',onSaveToastActivity,true);
+ document.removeEventListener('wheel',onSaveToastActivity,true);
+}
+function onSaveToastActivity(event){
+ if(event.type==='pointerdown'&&event.target.closest('#saveToast')){hideSaveToast();return}
+ if(saveToastTimer!==null)clearTimeout(saveToastTimer);
+ saveToastTimer=setTimeout(hideSaveToast,2000);
+}
+function showSaveToast(){
+ const toast=document.getElementById('saveToast');
+ if(saveToastTimer!==null)clearTimeout(saveToastTimer);
+ toast.classList.remove('hidden');
+ document.removeEventListener('pointerdown',onSaveToastActivity,true);
+ document.removeEventListener('keydown',onSaveToastActivity,true);
+ document.removeEventListener('wheel',onSaveToastActivity,true);
+ document.addEventListener('pointerdown',onSaveToastActivity,true);
+ document.addEventListener('keydown',onSaveToastActivity,true);
+ document.addEventListener('wheel',onSaveToastActivity,true,{passive:true});
+ saveToastTimer=setTimeout(hideSaveToast,2000);
+}
 document.getElementById('saveDay').onclick=()=>{const date=document.getElementById('entryDate').value;if(!date){alert('日付を指定してください');return}
  const normalized=draft.map(r=>({...r,sets:r.sets.filter(s=>Number(s.reps)>0).map(s=>({weight:isNumericWeight(s.weight)?Number(s.weight):String(s.weight),reps:Math.floor(Number(s.reps))}))})).filter(r=>r.sets.length);
  const event=String(document.getElementById('eventInput').value||'').trim();
  if(normalized.length)data.records[date]=normalized;else delete data.records[date];
  if(event){if(!data.events)data.events={};data.events[date]=event}else if(data.events)delete data.events[date];
- persist();selectedDate=date;viewDate=new Date(date+'T12:00:00');draft=JSON.parse(JSON.stringify(normalized));renderCalendar();renderEntry()};
+ persist();selectedDate=date;viewDate=new Date(date+'T12:00:00');draft=JSON.parse(JSON.stringify(normalized));renderCalendar();renderEntry();showSaveToast()};
 function drawMaxChart(points){
  const mode=historyChartMode;
  const modeNames={weight:'最大重量',maxReps:'最高回数（セットごと）',totalReps:'合計回数（全セット）'};
