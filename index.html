@@ -185,26 +185,13 @@ function hideSaveToast(){
  const toast=document.getElementById('saveToast');
  toast.classList.add('hidden');
  if(saveToastTimer!==null){clearTimeout(saveToastTimer);saveToastTimer=null}
- document.removeEventListener('pointerdown',onSaveToastActivity,true);
- document.removeEventListener('keydown',onSaveToastActivity,true);
- document.removeEventListener('wheel',onSaveToastActivity,true);
-}
-function onSaveToastActivity(event){
- if(event.type==='pointerdown'&&event.target.closest('#saveToast')){hideSaveToast();return}
- if(saveToastTimer!==null)clearTimeout(saveToastTimer);
- saveToastTimer=setTimeout(hideSaveToast,2000);
 }
 function showSaveToast(){
  const toast=document.getElementById('saveToast');
  if(saveToastTimer!==null)clearTimeout(saveToastTimer);
  toast.classList.remove('hidden');
- document.removeEventListener('pointerdown',onSaveToastActivity,true);
- document.removeEventListener('keydown',onSaveToastActivity,true);
- document.removeEventListener('wheel',onSaveToastActivity,true);
- document.addEventListener('pointerdown',onSaveToastActivity,true);
- document.addEventListener('keydown',onSaveToastActivity,true);
- document.addEventListener('wheel',onSaveToastActivity,true,{passive:true});
- saveToastTimer=setTimeout(hideSaveToast,2000);
+ saveToastTimer=setTimeout(hideSaveToast,1400);
+ toast.onclick=hideSaveToast;
 }
 document.getElementById('saveDay').onclick=()=>{const date=document.getElementById('entryDate').value;if(!date){alert('日付を指定してください');return}
  const normalized=draft.map(r=>({...r,sets:r.sets.filter(s=>Number(s.reps)>0).map(s=>({weight:isNumericWeight(s.weight)?Number(s.weight):String(s.weight),reps:Math.floor(Number(s.reps))}))})).filter(r=>r.sets.length);
