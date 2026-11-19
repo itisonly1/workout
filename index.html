@@ -12,14 +12,14 @@
 :root[data-theme="light"]{--bg:#f4f6f8;--panel:#ffffff;--panel2:#e8edf2;--text:#17212b;--muted:#5f6b78;--accent:#16865b;--line:#cbd3dc;--danger:#c93445}
 :root[data-theme="light"] header,:root[data-theme="light"] nav{background:#ffffff}
 :root[data-theme="light"] input,:root[data-theme="light"] select{background:#ffffff;color:var(--text)}
-:root[data-theme="light"] .day.today{background:#d9f0e5}
+:root[data-theme="light"] .day.today{border-color:var(--accent)}
 :root[data-theme="light"] button.danger{background:#f9dfe2;color:#8b1725}
-:root[data-theme="light"] .day.selected{border-color:var(--accent)}
+:root[data-theme="light"] .day.selected{background:#d9f0e5}
 :root[data-theme="light"] #editDay,:root[data-theme="light"] #addExercise,:root[data-theme="light"] #saveDay,:root[data-theme="light"] #createExercise,:root[data-theme="light"] #exportData{background:#dcefe5;color:#28543e;border:1px solid #c5e2d2}
 :root[data-theme="light"] #page-entry .entry-divider{border-top:1px solid #555!important}
 :root[data-theme="light"] .calendar{gap:0}
 :root[data-theme="light"] .calendar .dow,:root[data-theme="light"] .calendar .day{border:0;border-radius:0;box-shadow:inset 0 0 0 .5px var(--line)}
-:root[data-theme="light"] .calendar .day.selected{box-shadow:inset 0 0 0 2px var(--accent)}
+:root[data-theme="light"] .calendar .day.today{box-shadow:inset 0 0 0 2px var(--accent)}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px system-ui,-apple-system,"Noto Sans JP",sans-serif;padding-bottom:82px}
 header{padding:18px 16px 12px;background:#101827;position:sticky;top:0;z-index:5;border-bottom:1px solid var(--line)}
 h1{font-size:21px;margin:0;font-weight:750}.sub{color:var(--muted);font-size:12px;margin-top:3px}
@@ -41,7 +41,7 @@ h2{font-size:17px;margin:4px 0 10px}h3{font-size:15px;margin:0 0 8px}
 .calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
 .dow{text-align:center;color:var(--muted);font-size:11px;padding:5px 0}
 .day{min-height:52px;border:1px solid var(--line);background:var(--panel);border-radius:10px;color:var(--text);padding:5px 2px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:4px}
-.day.blank{visibility:hidden}.day.today{background:#244738}.day.selected{border:2px solid var(--accent)}.dots{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:16px}.dot-row{display:flex;align-items:center;justify-content:center;gap:3px;min-height:7px}.dot{width:7px;height:7px;border-radius:50%;background:var(--accent)}.dot.event{background:#ff5555}.dot.workout{background:#42a5f5}.dot.jujitsu{background:#9c27b0}
+.day.blank{visibility:hidden}.day.today{border:2px solid var(--accent)}.day.selected{background:#244738}.dots{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:16px}.dot-row{display:flex;align-items:center;justify-content:center;gap:3px;min-height:7px}.dot{width:7px;height:7px;border-radius:50%;background:var(--accent)}.dot.event{background:#ff5555}.dot.workout{background:#42a5f5}.dot.jujitsu{background:#9c27b0}
 .pill{font-size:11px;background:var(--panel2);border-radius:20px;padding:4px 8px;color:var(--muted)}
 .set-row{display:grid;grid-template-columns:40px minmax(0,1fr) minmax(0,1.35fr) 32px;gap:7px;align-items:center;margin:7px 0}
 .rep-control{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px;margin-top:4px}
